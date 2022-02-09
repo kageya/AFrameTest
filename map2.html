@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <script src="./three.js"></script>
+    <title>立体地図</title>
+  </head>
+  <body>
+    <div id="webgl"></div>
+    <canvas id="altitudecanvas" style="display: none;"></canvas>
+    <!-- 標高タイルのズームレベルが15では、標高データが存在しない箇所があるため、ズームレベル14の標高データで補う -->
+    <canvas id="altitudecanvas14" style="display: none;"></canvas>
+    <canvas id="texturecanvas" style="display: none;"></canvas>
+    <script>
+  //***********************************************************************************************
+  // 変数設定
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // 国土地理院からダウンロードする画像に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let altDataZoomLevel = 14;
+      let mapDataZoomLevel = 0;
+      // タイル数
+      let numberOfTiles = 3;
+      // 立体地図の標高タイルの座標（ズームレベル18のタイルで指定）
+      let centerTileX = 232466;
+      let centerTileZ = 103276;
+      const IMAGE_SIZE_W = 256;
+      const IMAGE_SIZE_H = 256;
+      let factor1 = 2;
+      let factor2 = 0;
+      // テクスチャーの画像のダウンロードが完了したか判断 true=ダウンロード完了
+      let textureImageDownloaded = false;
+    //-----------------------------------------------------------------------------------------------
+    // レンダリングに関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let camera = {};
+      let geometry = {};
+      let light = {};
+      let material = {};
+      let mesh = {};
+      let renderer = {};
+      let scene = {};
+      let texture = {};
+      let canvasSizeW = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width );
+      let canvasSizeH = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width ) * 540 / 960;
+    //-----------------------------------------------------------------------------------------------
+    // 立体地図に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      // 標高データの画像の横と縦のサイズ
+      let altitudeWidth = IMAGE_SIZE_W * numberOfTiles;
+      let altitudeHeight = IMAGE_SIZE_H * numberOfTiles;
+      // 標高データの画素データを格納する配列
+      let altitudeImageData = [];
+      let altitudeImageData14 = [];
+      // 経度・緯度の最小値・最大値（ラジアン）(自動計算)
+      let minLon = 0;
+      let maxLon = 0;
+      let minLat = 0;
+      let maxLat = 0;
+      // 経度・緯度の平均（ラジアン）(自動計算)
+      let aveLon = 0;
+      let aveLat = 0;
+      // 中心の座標ベクター(自動計算)
+      let centerCoordVector = {};
+      // ヒュベニの公式の定数
+      // 長半径 (赤道半径) (測地系 WGS84)
+      const EQUATOR_RADIUS = 6378137;
+      // 短半径 (極半径) (測地系 WGS84)
+      const POLE_RADIUS = 6356752;
+      // 第一離心率の2乗
+      const E2 = ( EQUATOR_RADIUS ** 2 - POLE_RADIUS ** 2 ) / ( EQUATOR_RADIUS ** 2 );
+      // 有効数字 100=有効数字小数点第2位
+      let significantDigits = 100;
+  //***********************************************************************************************
+  // メインプログラム
+  //***********************************************************************************************
+      // DOMの解析が終わったらメイン処理を実行
+      document.addEventListener( 'DOMContentLoaded', async function () {
+        // (1) グローバル変数の初期値計算
+        initialize();
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画
+        if ( altDataZoomLevel === 15 ) {
+          drawCanvas( 'altitudecanvas14', 0.5 );
+        }
+        // (2) 国土地理院から電子国土基本図の画像をダウンロードし、canvas要素へ描画
+        drawCanvas( 'texturecanvas', factor2 );
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画（非同期処理）
+        await drawCanvas( 'altitudecanvas', 1 );
+        // (3) シーンの準備
+        prepareScene();
+        // (4) レンダリング (レンダリングループ)
+        sceneRender();
+        // (5) 立体地図のメッシュを作成し、シーンに追加
+        createMesh();
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // (1) グローバル変数の初期値計算
+    //-----------------------------------------------------------------------------------------------
+      function initialize() {
+        mapDataZoomLevel = altDataZoomLevel + factor1;
+        factor2 = 2 ** factor1;
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (2) 国土地理院から標高タイルと電子国土基本図の画像をダウンロードし、canvasへ描画
+    //-----------------------------------------------------------------------------------------------
+      function drawCanvas( canvasName, f ) {
+        // 非同期処理のためのPromise関数
+        return new Promise( function ( resolve ) {
+          // canvas要素を取得
+          const CANVAS = document.getElementById( canvasName );
+          // canvasサイズの設定
+          CANVAS.width = IMAGE_SIZE_W * numberOfTiles * f;
+          CANVAS.height = IMAGE_SIZE_H * numberOfTiles * f;
+          // CanvasRenderingContext2Dの取得
+          const CONTEXT = CANVAS.getContext( '2d' );
+          // ダウンロードするタイル番号を計算
+          const MIN_X = ( ( centerTileX - ( numberOfTiles - 1 ) / 2 ) - ( numberOfTiles / 2 ) * ( 2 ** ( 18 - altDataZoomLevel ) - 1 ) ) / 2 ** ( 18 - altDataZoomLevel ) * f;
+          const MAX_X = ( ( centerTileX + 1 + ( numberOfTiles - 1 ) / 2 ) + ( numberOfTiles / 2 ) * ( 2 ** ( 18 - altDataZoomLevel ) - 1 ) ) / 2 ** ( 18 - altDataZoomLevel ) * f;
+          const MIN_Z = ( ( centerTileZ - ( numberOfTiles - 1 ) / 2 ) - ( numberOfTiles / 2 ) * ( 2 ** ( 18 - altDataZoomLevel ) - 1 ) ) / 2 ** ( 18 - altDataZoomLevel ) * f;
+          const MAX_Z = ( ( centerTileZ + 1 + ( numberOfTiles - 1 ) / 2 ) + ( numberOfTiles / 2 ) * ( 2 ** ( 18 - altDataZoomLevel ) - 1 ) ) / 2 ** ( 18 - altDataZoomLevel ) * f;
+          if ( canvasName === 'altitudecanvas' ) {
+            // 標高タイルをダウンロードするときに、経度・緯度に関連する計算を行う
+            // 経度・緯度の最小値・最大値（ラジアン）を取得
+            // X-Z平面は時計回りに対して、東経は反時計回りとなるので、-1をかける
+            minLon = -1 * tileToLon( MAX_X ) * Math.PI / 180;
+            maxLon = -1 * tileToLon( MIN_X ) * Math.PI / 180;
+            // 国土地理院の地図タイルは北から南に向かって数字が大きくなる、緯度は南から北に向かって数字が大きくなる
+            minLat = tileToLat( MAX_Z ) * Math.PI / 180;
+            maxLat = tileToLat( MIN_Z ) * Math.PI / 180;
+            // 経度・緯度の平均（ラジアン）、中心の座標を計算
+            hubenyFormula( maxLon, maxLat, minLon, minLat );
+          } else if ( canvasName === 'texturecanvas' ) {
+            // テクスチャー画像をダウンロードする場合は、はじめにテクスチャーの画像のダウンロードが完了したか判断する変数をfalseにする
+            textureImageDownloaded = false;
+          }
+          // ダウンロードした画像の枚数を記憶するカウント値
+          let c = 0;
+          for ( let z = Math.floor( MIN_Z ); z <= Math.floor( MAX_Z ); z ++ ) {
+            for ( let x = Math.floor( MIN_X ); x <= Math.floor( MAX_X ); x ++ ) {
+              // イメージオブジェクトの作成
+              const IMAGE_OBJECT = new Image();
+              // crossorigin 属性の設定
+              // anonymous = この要素のためのCORSリクエストで資格情報フラグを'same-origin'に設定する
+              IMAGE_OBJECT.crossOrigin = 'anonymous';
+              // 画像のダウンロードが完了後canvasへ描画
+              IMAGE_OBJECT.addEventListener( 'load', function() {
+                CONTEXT.drawImage( IMAGE_OBJECT, Math.round( ( x - MIN_X ) * IMAGE_SIZE_W ), Math.round( ( z - MIN_Z ) * IMAGE_SIZE_H ), IMAGE_SIZE_W, IMAGE_SIZE_H );
+                // カウント値を増加
+                c ++;
+                // カウント値により最後の画像がダウンロードされたか判断
+                if ( c === ( Math.floor( MAX_X ) - Math.floor( MIN_X ) ) * ( Math.floor( MAX_Z ) - Math.floor( MIN_Z ) ) ) {
+                  if ( canvasName === 'altitudecanvas' ) {
+                    // 標高データの描画時間を考慮して、1秒待ってから画素データの格納の処理を実行
+                    setTimeout( function () {
+                      // 標高データのRGBの画素データを格納する
+                      altitudeImageData = document.getElementById( 'altitudecanvas' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                      // 標高タイルをダウンロードする場合は、非同期処理を次に進めるためのresolve()を返す
+                      resolve();
+                    }, 1000 );
+                  } else if ( canvasName === 'altitudecanvas14' ) {
+                    setTimeout( function () {
+                      // 標高データのRGBの画素データを格納する
+                      altitudeImageData14 = document.getElementById( 'altitudecanvas14' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                    }, 1000 );
+                  } else if ( canvasName === 'texturecanvas' ) {
+                    // テクスチャー画像をダウンロードする場合は、テクスチャーの画像のダウンロードが完了したか判断する変数をtrueにする
+                    textureImageDownloaded = true;
+                  }
+                }
+              }, false );
+              // 画像のダウンロードが失敗した場合
+              IMAGE_OBJECT.addEventListener( 'error', function() {
+                // カウント値を増加
+                c ++;
+                if ( c === ( Math.floor( MAX_X ) - Math.floor( MIN_X ) ) * ( Math.floor( MAX_Z ) - Math.floor( MIN_Z ) ) ) {
+                  if ( canvasName === 'altitudecanvas' ) {
+                    setTimeout( function () {
+                      altitudeImageData = document.getElementById( 'altitudecanvas' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                      resolve();
+                    }, 1000 );
+                  } else if ( canvasName === 'altitudecanvas14' ) {
+                    setTimeout( function () {
+                      altitudeImageData14 = document.getElementById( 'altitudecanvas14' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                    }, 1000 );
+                  } else if ( canvasName === 'texturecanvas' ) {
+                    textureImageDownloaded = true;
+                  }
+                }
+              }, false );
+              // 国土地理院からPNG画像をダウンロードするためのURLの準備
+              let u ='';
+              if ( canvasName === 'altitudecanvas' ) {
+                // 標高タイル
+                if ( altDataZoomLevel === 15 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/' + altDataZoomLevel + '/' + x + '/' + z + '.png';
+                } else if ( altDataZoomLevel >= 9 && altDataZoomLevel <= 14 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/' + altDataZoomLevel + '/' + x + '/' + z + '.png';
+                } else if ( altDataZoomLevel >= 0 && altDataZoomLevel <= 8 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/demgm_png/' + altDataZoomLevel + '/' + x + '/' + z + '.png';
+                }
+              } else if ( canvasName === 'altitudecanvas14' ) {
+                u = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/' + x + '/' + z + '.png';
+              } else if ( canvasName === 'texturecanvas' ) {
+                // 電子国土基本図
+                u = 'https://cyberjapandata.gsi.go.jp/xyz/std/' + mapDataZoomLevel + '/' + x + '/' + z + '.png';
+              }
+              // イメージオブジェクトのソースにURLを設定し、PNG画像のダウンロードを開始
+              IMAGE_OBJECT.src = u;
+            }
+          }
+        } );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (3) シーンの準備
+    //-----------------------------------------------------------------------------------------------
+      function prepareScene() {
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( canvasSizeW, canvasSizeH );
+        renderer.setClearColor( 0xe6e6fa, 1.0 );
+        document.getElementById( 'webgl' ).appendChild( renderer.domElement );
+        scene = new THREE.Scene();
+        scene.add( new THREE.AmbientLight( 0x999999, 1.0 ) );
+        light = new THREE.DirectionalLight( 0xffffff, 0.4 );
+        light.position.copy( new THREE.Vector3( 0, Math.tan( Math.PI / 2 - aveLat ), 1 ) );
+        scene.add( light );
+        camera = new THREE.PerspectiveCamera( 22.9, canvasSizeW / canvasSizeH, 1, 10000 );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (4) レンダリング (レンダリングループ)
+    //-----------------------------------------------------------------------------------------------
+      function sceneRender() {
+        requestAnimationFrame( sceneRender );
+        camera.position.copy( new THREE.Vector3( 0, 3243.07, 2793.07 ) );
+        camera.lookAt( new THREE.Vector3( 0, 450, 0 ) );
+        renderer.render( scene, camera );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (5) 立体地図のメッシュを作成し、シーンに追加
+    //-----------------------------------------------------------------------------------------------
+      function createMesh() {
+        texture = new THREE.Texture( document.getElementById( 'texturecanvas' ) );
+        texture.magFilter = THREE.LinearFilter;
+        texture.minFilter = THREE.LinearFilter;
+        material = new THREE.MeshLambertMaterial();
+        material.map = texture;
+        material.side = THREE.DoubleSide;
+        // 平面(ジオメトリー・形状)を作成
+        // (Constructor) PlaneGeometry(width : Float, height : Float, widthSegments : Integer, heightSegments : Integer) : BufferGeometry
+        // (幅, 高さ, 幅分割数, 高さ分割数)
+        // あとで頂点を設定するため、幅と高さは1とする
+        geometry = new THREE.PlaneGeometry( 1, 1, altitudeWidth - 1, altitudeHeight - 1 );
+        // ジオメトリー内の各頂点の位置を設定
+        setGeometryVertex();
+        mesh = new THREE.Mesh( geometry, material );
+        scene.add( mesh );
+      }
+  //***********************************************************************************************
+  // イベント
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // ブラウザー（ウィンドウ）のサイズ変更時の処理
+    //-----------------------------------------------------------------------------------------------
+      window.addEventListener( 'resize', function () {
+        canvasSizeW = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width );
+        canvasSizeH = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width ) * 540 / 960;
+        renderer.setSize( canvasSizeW, canvasSizeH );
+      }, false );
+  //***********************************************************************************************
+  // ライブラリー
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // タイル番号から経度緯度を求める
+    //-----------------------------------------------------------------------------------------------
+      // 経度
+      function tileToLon( x ) {
+        return x / 2 ** altDataZoomLevel * 360 - 180;
+      }
+      // 緯度
+      function tileToLat( y ) {
+      const N = Math.PI - 2 * Math.PI * y / 2 ** altDataZoomLevel;
+        return 180 / Math.PI * Math.atan( 0.5 * ( Math.exp( N ) - Math.exp( -1 * N ) ) );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // 経度緯度から距離を求める ヒュベニの公式 経度・緯度の平均（ラジアン）、中心の座標を計算する
+    //-----------------------------------------------------------------------------------------------
+      function hubenyFormula( currentLon, currentLat, targetLon, targetLat ) {
+        // 2点の経度の差
+        const DELTA_LON = currentLon - targetLon;
+        // 2点の緯度の差
+        const DELTA_LAT = currentLat - targetLat;
+        // 2点の経度の平均
+        const L = ( currentLon + targetLon ) / 2;
+        // 2点の緯度の平均
+        const P = ( currentLat + targetLat ) / 2;
+        // 子午線・卯酉線曲率半径の分母
+        const W = Math.sqrt( 1 - E2 * Math.sin( P ) * Math.sin( P ) );
+        // 子午線曲率半径
+        const M = EQUATOR_RADIUS * ( 1 - E2 ) / ( W ** 3 );
+        // 卯酉線曲率半径
+        const N = EQUATOR_RADIUS / W;
+        // 経度・緯度の平均を取得
+        aveLon = L;
+        aveLat = P;
+        // 中心座標を計算
+        centerCoordVector = new THREE.Vector3( Math.round( N * Math.cos( P ) * Math.cos( L ) * significantDigits ) / significantDigits, Math.round( M * Math.sin( P ) * significantDigits ) / significantDigits, centerCoordZ = Math.round( N * Math.cos( P ) * Math.sin( L ) * significantDigits ) / significantDigits );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // ジオメトリー内の各頂点の位置を設定
+    //-----------------------------------------------------------------------------------------------
+      function setGeometryVertex() {
+        // xおよびzは標高タイル内の座標、z*altitudeWidth+xがジオメトリー内の各頂点を取得するためのインデックス
+        // ヒュベニの公式で得られる子午線曲率半径および卯酉線曲率半径を使用し、楕円体上に各頂点の座標を設定
+        for ( let z = 0; z < altitudeHeight; z ++ ) {
+          // 緯度
+          const P = maxLat - z * ( maxLat - minLat ) / ( altitudeHeight - 1 );
+          // 子午線・卯酉線曲率半径の分母
+          const W = Math.sqrt( 1 - E2 * Math.sin( P ) * Math.sin( P ) );
+          // 子午線曲率半径
+          const M = EQUATOR_RADIUS * ( 1 - E2 ) / ( W ** 3 );
+          // 卯酉線曲率半径
+          const N = EQUATOR_RADIUS / W;
+          for ( let x = 0; x < altitudeWidth; x ++ ) {
+            // 経度
+            const L = maxLon - x * ( maxLon - minLon ) / ( altitudeWidth - 1 );
+            // 楕円体表面までのベクター
+            const SURFACE_VECTOR = new THREE.Vector3( Math.round( N * Math.cos( P ) * Math.cos( L ) * significantDigits ) / significantDigits, Math.round( M * Math.sin( P ) * significantDigits ) / significantDigits, Math.round( N * Math.cos( P ) * Math.sin( L ) * significantDigits ) / significantDigits );
+            // 中心座標から頂点までのベクター
+            const VERTEX_VECTOR = SURFACE_VECTOR.clone().add( SURFACE_VECTOR.clone().normalize().multiplyScalar( getAltitude( x, z ) ) ).sub( centerCoordVector );
+            // 各頂点のX、Y、Z座標を設定
+            geometry.attributes.position.setXYZ( z * altitudeWidth + x, VERTEX_VECTOR.x, VERTEX_VECTOR.y, VERTEX_VECTOR.z );
+          }
+        }
+        // Z軸の正から負の方向に見たとき、立体地図が正面を向くように、Y軸を中心に-90度+平均緯度分回転
+        geometry.rotateY( -1 * Math.PI / 2 + aveLon );
+        // 立体地図がX-Z平面になるように、X軸を中心に-90度+平均緯度分回転
+        geometry.rotateX( -1 * Math.PI / 2 + aveLat );
+        // 法線ベクトルを自動で調整
+        geometry.computeVertexNormals();
+        // テクスチャーにcanvasデータを読み込むためアップデート処理を実施
+        texture.needsUpdate = true;
+        // テクスチャー画像のダウンロードが完了するまで1秒間隔で繰り返しアップデート処理を実施
+        let repeat = function () {
+          setTimeout( function () {
+            if ( !textureImageDownloaded ) {
+            // 繰り返す
+            repeat();
+            }
+            texture.needsUpdate = true;
+          }, 1000 );
+        }
+        // 繰返し処理の初回実行
+        repeat();
+      }
+    //-----------------------------------------------------------------------------------------------
+    // X座標、Z座標の数値から高さ情報を取得
+    //-----------------------------------------------------------------------------------------------
+      function getAltitude( x, z ) {
+        let altY = 0;
+        // インデックス
+        const I = z * altitudeWidth + x;
+        // 標高タイルのズームレベルが15では、標高データが存在しない箇所があるため、ズームレベル14の標高データで補う
+        if ( altDataZoomLevel === 15 ) {
+          const ALT_Y_15 = altitudeImageData[ 4 * I + 0 ] * 2 ** 16 + altitudeImageData[ 4 * I + 1 ] * 2 ** 8 + altitudeImageData[ 4 * I + 2 ];
+          if ( altitudeImageData[ 4 * I + 3 ] !== 0 && ALT_Y_15 !== 2 ** 23 ) {
+            // ズームレベル15で標高データが存在するとき
+            altY = ALT_Y_15;
+          } else if ( altitudeImageData[ 4 * I + 3 ] === 0 || ALT_Y_15 === 2 ** 23 ) {
+            // ズームレベル15で標高データが存在しないとき、ズームレベル14の標高データで補う
+            // ズームレベル15の標高データは5m間隔、ズームレベル14の標高データは10m間隔なので、奇数の間隔ではズームレベル14の標高データがない、周囲の標高データの平均値を使用
+            if ( x % 2 === 0 && z % 2 === 0 ) {
+              // ズームレベル14の標高データがある頂点
+              // インデックス
+              const J = z * altitudeWidth / 4 + x / 2;
+              altY = altitudeImageData14[ 4 * J + 0 ] * 2 ** 16 + altitudeImageData14[ 4 * J + 1 ] * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ];
+            } else {
+              // ズームレベル14の標高データがない頂点では、平均値を使用
+              // インデックス
+              const J = ( z - z % 2 ) * altitudeWidth / 4 + ( x - x % 2 ) / 2;
+              const K = ( z + z % 2 ) * altitudeWidth / 4 + ( x + x % 2 ) / 2;
+              // 標高データの右端と下端の処理
+              if ( x === altitudeWidth - 1 || z === altitudeHeight - 1 ) {
+                altY = altitudeImageData14[ 4 * J + 0 ] * 2 ** 16 + altitudeImageData14[ 4 * J + 1 ] * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ];
+              } else {
+                altY = ( ( altitudeImageData14[ 4 * J + 0 ] + altitudeImageData14[ 4 * K + 0 ] ) * 2 ** 16 + ( altitudeImageData14[ 4 * J + 1 ] + altitudeImageData14[ 4 * K + 1 ] ) * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ] + altitudeImageData14[ 4 * K + 2 ] ) / 2;
+              }
+            }
+          }
+        } else {
+        // 標高タイルのズームレベルが15より小さい場合
+          altY = altitudeImageData[ 4 * I + 0 ] * 2 ** 16 + altitudeImageData[ 4 * I + 1 ] * 2 ** 8 + altitudeImageData[ 4 * I + 2 ];
+        }
+        // 標高を返す
+        if ( altY < 2 ** 23 ) {
+          return Math.round( altY * 0.01 * significantDigits ) / significantDigits;
+        } else if ( altY === 2 ** 23 ) {
+          return 0;
+        } else if ( altY > 2 ** 23 ) {
+          return Math.round( ( altY - 2 ** 24 ) * 0.01 * significantDigits ) / significantDigits;
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <script src="./three.js"></script>
+    <title>立体地図</title>
+  </head>
+  <body>
+    <div id="webgl"></div>
+    <br />
+    <form name="form1">
+      <table style="text-align: center; width: 100%;">
+        <tr>
+          <td style="text-align: right; width: 20%;">☆ ズームレベル:</td>
+          <td style="width: 20%;"><input type="range" name="z" value="" min="10" max="15" step="1" style="text-align: right; width: 80%;" onchange="document.form1.input1.value = document.form1.z.value; document.form1.input3.value = Number( document.form1.z.value ) + Number( document.form1.f.value );" /></td>
+          <td style="width: 10%;"><input type="text" name="input1" value="" disabled="disabled" style="text-align: right; width: 80%;" /></td>
+          <td style="text-align: right; width: 20%;">☆ タイル数:</td>
+          <td style="width: 20%;"><input type="range" name="n" value="" min="1" max="10" step="1" style="text-align: right; width: 80%;" onchange="document.form1.input2.value = document.form1.n.value;" /></td>
+          <td style="width: 10%;"><input type="text" name="input2" value="" disabled="disabled" style="text-align: right; width: 80%;" /></td>
+        </tr>
+        <tr>
+          <td style="text-align: right; width: 20%;">☆ 周りの地図の数:</td>
+          <td style="width: 20%;"><input type="range" name="r" value="" min="0" max="9" step="1" style="text-align: right; width: 80%;" onchange="document.form1.input4.value = document.form1.r.value;" /></td>
+          <td style="width: 10%;"><input type="text" name="input4" value="" disabled="disabled" style="text-align: right; width: 80%;" /></td>
+          <td style="width: 20%;"></td>
+          <td style="width: 20%;"></td>
+          <td style="width: 10%;"></td>
+        </tr>
+      </table>
+      <table style="text-align: center; width: 100%;">
+        <tr>
+          <td style="text-align: right; width: 20%;">☆ テクスチャー:</td>
+          <td style="width: 30%;"><select name="t" style="text-align: left; width: 80%;">
+            <option value="0">電子国土基本図(12～18)・小縮尺地図(5～11)</option>
+            <option value="1">全国最新写真（シームレス）(14～18)・全国ランドサットモザイク画像(9～13)</option>
+            <option value="2">色別標高図(5～15)</option>
+            <option value="3">標高タイル（基盤地図情報数値標高モデル）(1～15)</option>
+            <option value="4">赤色立体地図(2～14)</option>
+          </select></td>
+          <td style="text-align: right; width: 20%;">☆ テクスチャーのズームレベル:</td>
+          <td style="width: 20%;"><input type="range" name="f" value="" min="-3" max="3" step="1" style="text-align: right; width: 80%;" onchange="document.form1.input3.value = Number( document.form1.z.value ) + Number( document.form1.f.value );" /></td>
+          <td style="width: 10%;"><input type="text" name="input3" value="" disabled="disabled" style="text-align: right; width: 80%;" /></td>
+        </tr>
+      </table>
+      <table style="text-align: center; width: 100%;">
+        <tr>
+          <td style="text-align: right; width: 20%;">☆ 中心タイル (X):</td>
+          <td style="width: 30%;"><input type="number" name="x" value="" style="text-align: right; width: 80%;" /></td>
+          <td style="text-align: right; width: 20%;">☆ 中心タイル (Y):</td>
+          <td style="width: 30%;"><input type="number" name="y" value="" style="text-align: right; width: 80%;" /></td>
+        </tr>
+      </table>
+      <table style="text-align: center; width: 100%;">
+        <tr>
+          <td style="width: 20%;"></td>
+          <td style="text-align: left; width: 80%;"><button type="button" name="button1" />GPSを使用して中心タイルの座標を入力</button></td>
+        </tr>
+        <tr>
+          <td style="width: 20%;"></td>
+          <td style="text-align: left; width: 80%;"><span id="gps-message" style="display: none;"></span></td>
+        </tr>
+      </table>
+      <br />
+      <table style="text-align: center; width: 100%;">
+        <tr>
+          <td style="width: 100%;"><button type="submit" style="width: 20%;" />立体地図更新</button></td>
+        </tr>
+      </table>
+    </form>
+    <canvas id="altitudecanvas" style="display: none;"></canvas>
+    <canvas id="altitudecanvas14" style="display: none;"></canvas>
+    <canvas id="texturecanvas" style="display: none;"></canvas>
+    <canvas id="altitudecanvas1" style="display: none;"></canvas>
+    <canvas id="texturecanvas1" style="display: none;"></canvas>
+    <canvas id="altitudecanvas2" style="display: none;"></canvas>
+    <canvas id="texturecanvas2" style="display: none;"></canvas>
+    <canvas id="altitudecanvas3" style="display: none;"></canvas>
+    <canvas id="texturecanvas3" style="display: none;"></canvas>
+    <canvas id="altitudecanvas4" style="display: none;"></canvas>
+    <canvas id="texturecanvas4" style="display: none;"></canvas>
+    <canvas id="altitudecanvas5" style="display: none;"></canvas>
+    <canvas id="texturecanvas5" style="display: none;"></canvas>
+    <canvas id="altitudecanvas6" style="display: none;"></canvas>
+    <canvas id="texturecanvas6" style="display: none;"></canvas>
+    <canvas id="altitudecanvas7" style="display: none;"></canvas>
+    <canvas id="texturecanvas7" style="display: none;"></canvas>
+    <canvas id="altitudecanvas8" style="display: none;"></canvas>
+    <canvas id="texturecanvas8" style="display: none;"></canvas>
+    <canvas id="altitudecanvas9" style="display: none;"></canvas>
+    <canvas id="texturecanvas9" style="display: none;"></canvas>
+    <script>
+  //***********************************************************************************************
+  // 変数設定
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // 国土地理院からダウンロードする画像に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let altDataZoomLevel = 14;
+      let mapDataZoomLevel = 0;
+      let numberOfTiles = 3;
+      let centerTileX = 232466;
+      let centerTileZ = 103276;
+      const IMAGE_SIZE_W = 256;
+      const IMAGE_SIZE_H = 256;
+      let factor1 = 2;
+      let factor2 = 0;
+      let textureImageDownloaded = false;
+      let textureSwitch = 0;
+    //-----------------------------------------------------------------------------------------------
+    // レンダリングに関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let camera = {};
+      let geometry = [];
+      let light = {};
+      let material = [];
+      let mesh = [];
+      let renderer = {};
+      let scene = {};
+      let texture = [];
+      let canvasSizeW = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width );
+      let canvasSizeH = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width ) * 540 / 960;
+    //-----------------------------------------------------------------------------------------------
+    // 立体地図に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let altitudeWidth = 0;
+      let altitudeHeight = 0;
+      let altitudeImageData = [];
+      let altitudeImageData14 = [];
+      let minLon = [];
+      let maxLon = [];
+      let minLat = [];
+      let maxLat = [];
+      let aveLon = 0;
+      let aveLat = 0;
+      let centerCoordVector = {};
+      const EQUATOR_RADIUS = 6378137;
+      const POLE_RADIUS = 6356752;
+      const E2 = ( EQUATOR_RADIUS ** 2 - POLE_RADIUS ** 2 ) / ( EQUATOR_RADIUS ** 2 );
+      let significantDigits = 100;
+    //-----------------------------------------------------------------------------------------------
+    // 地図上の移動に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let geometrySizeW = 0;
+      let geometrySizeH = 0;
+      let textureSizeW = 0;
+      let textureSizeH = 0;
+      let currentX = 0;
+      let currentZ = 0;
+      let radius = 0;
+      let phiRadian = 90 * Math.PI / 180;
+      let thetaRadian = 45 * Math.PI / 180;
+      let vector11 = {};
+      let vector12 = {};
+      let birdFloorHeight = 0;
+      let isDragging = false;
+      let isTouching = false;
+      let touchCount = 0;
+      let baseX = 0;
+      let baseY = 0;
+      let baseRadius = 0;
+      let basePhiRadian = 0;
+      let baseThetaRadian = 0;
+      let baseCurrentX = 0;
+      let baseCurrentZ = 0;
+      let baseVector2 = new THREE.Vector2();
+    //-----------------------------------------------------------------------------------------------
+    // 立体地図を更新に関連する変数
+    //-----------------------------------------------------------------------------------------------
+      let positionOffsetX = 0;
+      let positionOffsetZ = 0;
+      let eventSwitch = false;
+    //-----------------------------------------------------------------------------------------------
+    // 周りの立体地図を表示に関する変数
+    //-----------------------------------------------------------------------------------------------
+      // 周りの地図の数
+      let repeatNumber = 3;
+      //  カメラに映る最遠距離の調整用
+      let maxGeometrySizeW = 0;
+      // 周りの地図の標高データの画素データを格納する配列
+      let repeatAltitudeImageData = [[],[]];
+  //***********************************************************************************************
+  // メインプログラム
+  //***********************************************************************************************
+      // DOMの解析が終わったらメイン処理を実行
+      document.addEventListener( 'DOMContentLoaded', async function () {
+        // Query string（クエリーパラメーター）の読込
+        getQueryString();
+        // (1) グローバル変数の初期値計算
+        initialize();
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画
+        if ( altDataZoomLevel === 15 ) {
+          drawCanvas( 'altitudecanvas14', altDataZoomLevel, mapDataZoomLevel, 0.5 );
+        }
+        // (2) 国土地理院から電子国土基本図の画像をダウンロードし、canvas要素へ描画
+        drawCanvas( 'texturecanvas', altDataZoomLevel, mapDataZoomLevel, factor2 );
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画（非同期処理）
+        await drawCanvas( 'altitudecanvas', altDataZoomLevel, mapDataZoomLevel, 1 );
+        // (3) シーンの準備
+        prepareScene();
+        // (4) レンダリング (レンダリングループ)
+        sceneRender();
+        // X座標、Z座標の標高に合わせて、視点の場所とカメラの距離を調整する
+        initializeRadius( Math.floor( currentX ), Math.floor( currentZ ) );
+        // X座標、Z座標の標高に合わせて視点の高さを調整する
+        initializeFloorHeight( Math.floor( currentX ), Math.floor( currentZ ) );
+        // (5) 立体地図のメッシュを作成し、シーンに追加
+        createMesh( 'altitudecanvas', altDataZoomLevel );
+        // イベントを有効化
+        eventSwitch = true;
+        // 周りの地図の描画
+        for ( let i = 1; i <= repeatNumber; i ++ ) {
+          createRepeatMap( i )
+        }
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // (1) グローバル変数の初期値計算
+    //-----------------------------------------------------------------------------------------------
+      function initialize() {
+        mapDataZoomLevel = altDataZoomLevel + factor1;
+        factor2 = 2 ** factor1;
+        altitudeWidth = IMAGE_SIZE_W * numberOfTiles;
+        altitudeHeight = IMAGE_SIZE_H * numberOfTiles;
+        currentX = 0.5 * IMAGE_SIZE_W * numberOfTiles;
+        currentZ = 0.5 * IMAGE_SIZE_H * numberOfTiles;
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (2) 国土地理院から標高タイルと電子国土基本図の画像をダウンロードし、canvasへ描画
+    //-----------------------------------------------------------------------------------------------
+      function drawCanvas( canvasName, azl, mzl, f ) {
+        return new Promise( function ( resolve ) {
+          const INDEX = altDataZoomLevel - azl;
+          const CANVAS = document.getElementById( canvasName );
+          CANVAS.width = IMAGE_SIZE_W * numberOfTiles * f;
+          CANVAS.height = IMAGE_SIZE_H * numberOfTiles * f;
+          const CONTEXT = CANVAS.getContext( '2d' );
+          const MIN_X = ( ( centerTileX - ( numberOfTiles - 1 ) / 2 ) - ( numberOfTiles / 2 ) * ( 2 ** ( 18 - azl ) - 1 ) ) / 2 ** ( 18 - azl ) * f;
+          const MAX_X = ( ( centerTileX + 1 + ( numberOfTiles - 1 ) / 2 ) + ( numberOfTiles / 2 ) * ( 2 ** ( 18 - azl ) - 1 ) ) / 2 ** ( 18 - azl ) * f;
+          const MIN_Z = ( ( centerTileZ - ( numberOfTiles - 1 ) / 2 ) - ( numberOfTiles / 2 ) * ( 2 ** ( 18 - azl ) - 1 ) ) / 2 ** ( 18 - azl ) * f;
+          const MAX_Z = ( ( centerTileZ + 1 + ( numberOfTiles - 1 ) / 2 ) + ( numberOfTiles / 2 ) * ( 2 ** ( 18 - azl ) - 1 ) ) / 2 ** ( 18 - azl ) * f;
+          if ( canvasName.match( 'altitudecanvas' ) && !canvasName.match( 'altitudecanvas14' ) ) {
+            minLon[ INDEX ] = -1 * tileToLon( azl, MAX_X ) * Math.PI / 180;
+            maxLon[ INDEX ] = -1 * tileToLon( azl, MIN_X ) * Math.PI / 180;
+            minLat[ INDEX ] = tileToLat( azl, MAX_Z ) * Math.PI / 180;
+            maxLat[ INDEX ] = tileToLat( azl, MIN_Z ) * Math.PI / 180;
+            hubenyFormula( azl, maxLon[ INDEX ], maxLat[ INDEX ], minLon[ INDEX ], minLat[ INDEX ] );
+          } else if ( canvasName.match( 'texturecanvas' ) ) {
+            textureImageDownloaded = false;
+          }
+          let c = 0;
+          for ( let z = Math.floor( MIN_Z ); z <= Math.floor( MAX_Z ); z ++ ) {
+            for ( let x = Math.floor( MIN_X ); x <= Math.floor( MAX_X ); x ++ ) {
+              const IMAGE_OBJECT = new Image();
+              IMAGE_OBJECT.crossOrigin = 'anonymous';
+              IMAGE_OBJECT.addEventListener( 'load', function() {
+                CONTEXT.drawImage( IMAGE_OBJECT, Math.round( ( x - MIN_X ) * IMAGE_SIZE_W ), Math.round( ( z - MIN_Z ) * IMAGE_SIZE_H ), IMAGE_SIZE_W, IMAGE_SIZE_H );
+                c ++;
+                if ( c === ( Math.floor( MAX_X ) - Math.floor( MIN_X ) ) * ( Math.floor( MAX_Z ) - Math.floor( MIN_Z ) ) ) {
+                  if ( canvasName.match( 'altitudecanvas' ) && !canvasName.match( 'altitudecanvas14' ) ) {
+                    if ( canvasName === 'altitudecanvas' ) {
+                      setTimeout( function () {
+                        altitudeImageData = document.getElementById( 'altitudecanvas' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                        resolve();
+                      }, 1000 );
+                    } else {
+                      setTimeout( function () {
+                        repeatAltitudeImageData[ canvasName ] = document.getElementById( canvasName ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                        resolve();
+                      }, 3000 );
+                    }
+                  } else if ( canvasName === 'altitudecanvas14' ) {
+                    setTimeout( function () {
+                      altitudeImageData14 = document.getElementById( 'altitudecanvas14' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                    }, 1000 );
+                  } else if ( canvasName.match( 'texturecanvas' ) ) {
+                    textureImageDownloaded = true;
+                  }
+                }
+              }, false );
+              IMAGE_OBJECT.addEventListener( 'error', function() {
+                c ++;
+                if ( c === ( Math.floor( MAX_X ) - Math.floor( MIN_X ) ) * ( Math.floor( MAX_Z ) - Math.floor( MIN_Z ) ) ) {
+                  if ( canvasName.match( 'altitudecanvas' ) && !canvasName.match( 'altitudecanvas14' ) ) {
+                    if ( canvasName === 'altitudecanvas' ) {
+                      setTimeout( function () {
+                        altitudeImageData = document.getElementById( 'altitudecanvas' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                        resolve();
+                      }, 1000 );
+                    } else {
+                      setTimeout( function () {
+                        repeatAltitudeImageData[ canvasName ] = document.getElementById( canvasName ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                        resolve();
+                      }, 3000 );
+                    }
+                  } else if ( canvasName === 'altitudecanvas14' ) {
+                    setTimeout( function () {
+                      altitudeImageData14 = document.getElementById( 'altitudecanvas14' ).getContext( '2d' ).getImageData( 0, 0, CANVAS.width, CANVAS.height ).data;
+                    }, 1000 );
+                  } else if ( canvasName.match( 'texturecanvas' ) ) {
+                    textureImageDownloaded = true;
+                  }
+                }
+              }, false );
+              let u ='';
+              if ( canvasName === 'altitudecanvas' ) {
+                if ( azl === 15 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/' + azl + '/' + x + '/' + z + '.png';
+                } else if ( azl >= 9 && azl <= 14 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/' + azl + '/' + x + '/' + z + '.png';
+                } else if ( azl >= 0 && azl <= 8 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/demgm_png/' + azl + '/' + x + '/' + z + '.png';
+                }
+              } else if ( canvasName === 'altitudecanvas14' ) {
+                u = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/' + x + '/' + z + '.png';
+              } else if ( canvasName === 'texturecanvas' ) {
+                if ( textureSwitch === 1 && mzl >= 2 && mzl <= 18 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/' + mzl + '/' + x + '/' + z + '.jpg';
+                } else if ( textureSwitch === 2 && mzl >= 5 && mzl <= 15 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/relief/' + mzl + '/' + x + '/' + z + '.png';
+                } else if ( textureSwitch === 3 && mzl === 15 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/' + mzl + '/' + x + '/' + z + '.png';
+                } else if ( textureSwitch === 3 && mzl >= 9 && mzl <= 14 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/' + mzl + '/' + x + '/' + z + '.png';
+                } else if ( textureSwitch === 3 && mzl >= 0 && mzl <= 8 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/demgm_png/' + mzl + '/' + x + '/' + z + '.png';
+                } else if ( textureSwitch === 4 && mzl >= 2 && mzl <= 14 ) {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/sekishoku/' + mzl + '/' + x + '/' + z + '.png';
+                } else {
+                  u = 'https://cyberjapandata.gsi.go.jp/xyz/std/' + mzl + '/' + x + '/' + z + '.png';
+                }
+              }
+              IMAGE_OBJECT.src = u;
+            }
+          }
+        } );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (3) シーンの準備
+    //-----------------------------------------------------------------------------------------------
+      function prepareScene() {
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( canvasSizeW, canvasSizeH );
+        renderer.setClearColor( 0xe6e6fa, 1.0 );
+        document.getElementById( 'webgl' ).appendChild( renderer.domElement );
+        scene = new THREE.Scene();
+        scene.add( new THREE.AmbientLight( 0x999999, 1.0 ) );
+        light = new THREE.DirectionalLight( 0xffffff, 0.4 );
+        light.position.copy( new THREE.Vector3( 0, Math.tan( Math.PI / 2 - aveLat ), 1 ) );
+        scene.add( light );
+        camera = new THREE.PerspectiveCamera( 22.9, canvasSizeW / canvasSizeH, 1, 10000 + geometrySizeW );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (4) レンダリング (レンダリングループ)
+    //-----------------------------------------------------------------------------------------------
+      function sceneRender() {
+        requestAnimationFrame( sceneRender );
+        birdCameraPosition();
+        camera.position.copy( vector11 );
+        camera.lookAt( vector12 );
+        renderer.render( scene, camera );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // (5) 立体地図のメッシュを作成し、シーンに追加
+    //-----------------------------------------------------------------------------------------------
+      function createMesh( canvasName, azl ) {
+        const INDEX = altDataZoomLevel - azl;
+        if ( azl === altDataZoomLevel ) {
+          texture[ INDEX ] = new THREE.Texture( document.getElementById( 'texturecanvas' ) );
+        } else {
+          texture[ INDEX ] = new THREE.Texture( document.getElementById( 'texturecanvas' + String( INDEX ) ) );
+        }
+        texture[ INDEX ].magFilter = THREE.LinearFilter;
+        texture[ INDEX ].minFilter = THREE.LinearFilter;
+        material[ INDEX ] = new THREE.MeshLambertMaterial();
+        material[ INDEX ].map = texture[ INDEX ];
+        material[ INDEX ].side = THREE.DoubleSide;
+        geometry[ INDEX ] = new THREE.PlaneGeometry( 1, 1, altitudeWidth - 1, altitudeHeight - 1 );
+        setGeometryVertex( canvasName, azl );
+        mesh[ INDEX ] = new THREE.Mesh( geometry[ INDEX ], material[ INDEX ] );
+        scene.add( mesh[ INDEX ] );
+      }
+  //***********************************************************************************************
+  // イベント
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // ブラウザー（ウィンドウ）のサイズ変更時の処理
+    //-----------------------------------------------------------------------------------------------
+      window.addEventListener( 'resize', function () {
+        canvasSizeW = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width );
+        canvasSizeH = parseInt( window.getComputedStyle( document.getElementById( 'webgl' ) ).width ) * 540 / 960;
+        renderer.setSize( canvasSizeW, canvasSizeH );
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // GPSを使用して中心タイルの座標を入力する
+    //-----------------------------------------------------------------------------------------------
+      document.form1.button1.addEventListener( 'click', function () {
+        document.getElementById( 'gps-message' ).style.display = 'none';
+        if ( navigator.geolocation ) {
+          document.form1.button1.disabled = true;
+          document.getElementById( 'gps-message' ).style.display = 'inline';
+          document.getElementById( 'gps-message' ).innerHTML = '位置情報取得中';
+          const ERROR_MESSAGE = {
+            1: 'PERMISSION_DENIED: このページにはアクセス許可がないため、位置情報の取得に失敗しました。',
+            2: 'POSITION_UNAVAILABLE: 少なくともひとつの位置情報ソースが内部的なエラーを返したため、位置情報の取得に失敗しました。',
+            3: 'TIMEOUT: 設定された制限時間内に位置情報を取得することができませんでした。'
+          };
+          navigator.geolocation.watchPosition( function ( position ) {
+            document.form1.x.value = Math.floor( lonToTile( 18, position.coords.longitude ) );
+            document.form1.y.value = Math.floor( latToTile( 18, position.coords.latitude ) );
+            document.getElementById( 'gps-message' ).innerHTML = '位置情報取得完了';
+          }, function ( error ) {
+            document.getElementById( 'gps-message' ).innerHTML = ERROR_MESSAGE[ error.code ];
+          }, { enableHightAccuracy: true, timeout: 30000, maximumAge: 0 } );
+          setTimeout( function () {
+            document.form1.button1.disabled = false;
+          }, 180000 );
+          
+          
+        } else {
+          document.getElementById( 'gps-message' ).style.display = 'inline';
+          document.getElementById( 'gps-message' ).innerHTML = 'Geolocation インターフェースにアクセスできず、位置情報を取得できませんでした。';
+        }
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // 画面上でのドラッグの開始/終了
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'pointerdown', function ( event ) {
+        if ( eventSwitch ) {
+          event.preventDefault();
+          isDragging = true;
+          baseX = event.clientX;
+          baseY = event.clientY;
+          basePhiRadian = phiRadian;
+          baseThetaRadian = thetaRadian;
+          baseCurrentX = currentX;
+          baseCurrentZ = currentZ;
+          if ( event.buttons === 4 ) {
+            initializeRadius( Math.floor( currentX ), Math.floor( currentZ ) );
+            initializeFloorHeight( Math.floor( currentX ), Math.floor( currentZ ) );
+            phiRadian = 90 * Math.PI / 180;
+            thetaRadian = 45 * Math.PI / 180;
+          }
+        }
+      }, false );
+      document.getElementById( 'webgl' ).addEventListener( 'pointerup', function () {
+        if ( isDragging === true ) {
+          isDragging = false;
+          if ( currentX < 0.01 * IMAGE_SIZE_W * numberOfTiles || currentX > 0.99 * IMAGE_SIZE_W * numberOfTiles || currentZ < 0.01 * IMAGE_SIZE_H * numberOfTiles || currentZ > 0.99 * IMAGE_SIZE_H * numberOfTiles ) {
+            refreshMesh();
+          }
+        }
+      }, false );
+      document.getElementById( 'webgl' ).addEventListener( 'pointerout', function () {
+        if ( isDragging === true ) {
+          isDragging = false;
+        }
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // 画面上でのドラッグ操作
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'pointermove' , function ( event ) {
+        event.preventDefault();
+        if ( isDragging === true && eventSwitch ) {
+          if ( event.buttons === 1 ){
+            let x = baseCurrentX + 2 * IMAGE_SIZE_W * numberOfTiles * radius * Math.tan( camera.fov * Math.PI / 360 ) * ( Math.cos( phiRadian + 90 * Math.PI / 180 ) * ( event.clientX - baseX ) - Math.sin( phiRadian + 90 * Math.PI / 180 ) * ( event.clientY - baseY ) ) / ( canvasSizeH * geometrySizeW );
+            let z = baseCurrentZ + 2 * IMAGE_SIZE_H * numberOfTiles * radius * Math.tan( camera.fov * Math.PI / 360 ) * ( Math.sin( phiRadian + 90 * Math.PI / 180 ) * ( event.clientX - baseX ) + Math.cos( phiRadian + 90 * Math.PI / 180 ) * ( event.clientY - baseY ) ) / ( canvasSizeH * geometrySizeH );
+            if ( x >= 0 - IMAGE_SIZE_W * numberOfTiles * ( 2 ** repeatNumber - 1 ) && x <= IMAGE_SIZE_W * numberOfTiles * 2 ** repeatNumber && z >= 0 - IMAGE_SIZE_H * numberOfTiles * ( 2 ** repeatNumber - 1 )  && z <= IMAGE_SIZE_H * numberOfTiles * 2 ** repeatNumber ) {
+              currentX = x;
+              currentZ = z;
+            }
+          } else if ( event.buttons === 2 ) {
+            phiRadian = basePhiRadian + ( 2 * Math.PI / this.clientWidth ) * ( event.clientX - baseX );
+            if ( thetaRadian >= 5 * Math.PI / 180 && thetaRadian <= 175 * Math.PI / 180 ) {
+              thetaRadian = baseThetaRadian - ( Math.PI / this.clientHeight ) * ( event.clientY - baseY );
+            } else if ( thetaRadian < 5 * Math.PI / 180 && event.movementY < 0 ) {
+              thetaRadian = 5 * Math.PI / 180;
+              baseThetaRadian = 5 * Math.PI / 180;
+              baseY = event.clientY;
+            } else if ( thetaRadian > 175 * Math.PI / 180 && event.movementY > 0 ) {
+              thetaRadian = 175 * Math.PI / 180;
+              baseThetaRadian = 175 * Math.PI / 180;
+              baseY = event.clientY;
+            }
+          }
+        }
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // 右クリックを離した時にメニューを表示させない
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'contextmenu', function ( event ) {
+        event.preventDefault();
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // 画面上でのマウスホイールの操作
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'wheel', function ( event ) {
+        event.preventDefault();
+        if ( eventSwitch ) {
+          radius += 1 * event.deltaY;
+        }
+      }, false );
+    //-----------------------------------------------------------------------------------------------
+    // 画面上でのタッチ操作の開始/終了
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'touchstart', function ( event ) {
+        event.preventDefault();
+        if ( event.touches.length === 1 && eventSwitch ) {
+          if ( touchCount === 0 ) {
+            touchCount ++;
+            setTimeout( function () {
+              touchCount = 0;
+            }, 400 );
+          } else {
+            initializeRadius( Math.floor( currentX ), Math.floor( currentZ ) );
+            initializeFloorHeight( Math.floor( currentX ), Math.floor( currentZ ) );
+            phiRadian = 90 * Math.PI / 180;
+            thetaRadian = 45 * Math.PI / 180;
+            touchCount = 0;
+          }
+        } else if ( event.touches.length > 1 && eventSwitch ) {
+          isDragging = false;
+          isTouching = true;
+          baseVector2.x = event.touches[ 1 ].pageX - event.touches[ 0 ].pageX;
+          baseVector2.y = event.touches[ 1 ].pageY - event.touches[ 0 ].pageY;
+          baseX = event.touches[ 0 ].pageX;
+          baseY = event.touches[ 0 ].pageY;
+          baseRadius = radius;
+        }
+      }, false);
+      document.getElementById( 'webgl' ).addEventListener( 'touchend', function ( event ) {
+        event.preventDefault();
+        isTouching = false;
+      }, false);
+    //-----------------------------------------------------------------------------------------------
+    // 画面上でのタッチ操作、ピンチイン、ピンチアウトの操作
+    //-----------------------------------------------------------------------------------------------
+      document.getElementById( 'webgl' ).addEventListener( 'touchmove', function ( event ) {
+        event.preventDefault();
+        if ( isTouching === true && eventSwitch ) {
+          const X_1 = event.touches[ 0 ].pageX;
+          const Y_1 = event.touches[ 0 ].pageY;
+          const X_2 = event.touches[ 1 ].pageX;
+          const Y_2 = event.touches[ 1 ].pageY;
+          const VECTOR_2 = new THREE.Vector2( X_2 - X_1, Y_2 - Y_1 );
+          radius = baseRadius - 5 * ( VECTOR_2.length() - baseVector2.length() );
+          phiRadian = basePhiRadian + ( 2 * Math.PI / this.clientWidth ) * ( X_1 - baseX );
+          if ( thetaRadian >= 5 * Math.PI / 180 && thetaRadian <= 175 * Math.PI / 180 ) {
+            thetaRadian = baseThetaRadian - ( Math.PI / this.clientHeight ) * ( Y_1 - baseY );
+          } else if ( thetaRadian < 5 * Math.PI / 180 && Y_1 - baseY < 0 ) {
+            thetaRadian = 5 * Math.PI / 180;
+            baseThetaRadian = 5 * Math.PI / 180;
+            baseY = Y_1;
+          } else if ( thetaRadian > 175 * Math.PI / 180 && Y_1 - baseY > 0 ) {
+            thetaRadian = 175 * Math.PI / 180;
+            baseThetaRadian = 175 * Math.PI / 180;
+            baseY = Y_1;
+          }
+        }
+      }, false );
+  //***********************************************************************************************
+  // ライブラリー
+  //***********************************************************************************************
+    //-----------------------------------------------------------------------------------------------
+    // タイル番号から経度緯度を求める
+    //-----------------------------------------------------------------------------------------------
+      function tileToLon( azl, x ) {
+        return x / 2 ** azl * 360 - 180;
+      }
+      function tileToLat( azl, y ) {
+      const N = Math.PI - 2 * Math.PI * y / 2 ** azl;
+        return 180 / Math.PI * Math.atan( 0.5 * ( Math.exp( N ) - Math.exp( -1 * N ) ) );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // 経度緯度から距離を求める ヒュベニの公式
+    //-----------------------------------------------------------------------------------------------
+      function hubenyFormula( azl, currentLon, currentLat, targetLon, targetLat ) {
+        const DELTA_LON = currentLon - targetLon;
+        const DELTA_LAT = currentLat - targetLat;
+        const L = ( currentLon + targetLon ) / 2;
+        const P = ( currentLat + targetLat ) / 2;
+        const W = Math.sqrt( 1 - E2 * Math.sin( P ) * Math.sin( P ) );
+        const M = EQUATOR_RADIUS * ( 1 - E2 ) / ( W ** 3 );
+        const N = EQUATOR_RADIUS / W;
+        if ( azl === altDataZoomLevel ) {
+          // geometryの横と縦の距離(m)を計算
+          geometrySizeW = Math.abs( Math.round( DELTA_LON * N * Math.cos( P ) ) );
+          geometrySizeH = Math.abs( Math.round( DELTA_LAT * M ) );
+          aveLon = L;
+          aveLat = P;
+          centerCoordVector = new THREE.Vector3( Math.round( N * Math.cos( P ) * Math.cos( L ) * significantDigits ) / significantDigits, Math.round( M * Math.sin( P ) * significantDigits ) / significantDigits, centerCoordZ = Math.round( N * Math.cos( P ) * Math.sin( L ) * significantDigits ) / significantDigits );
+        } else {
+          maxGeometrySizeW = Math.abs( Math.round( DELTA_LON * N * Math.cos( P ) ) );
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // ジオメトリー内の各頂点の位置を設定
+    //-----------------------------------------------------------------------------------------------
+      function setGeometryVertex( canvasName, azl ) {
+      const INDEX = altDataZoomLevel - azl;
+      for ( let z = 0; z < altitudeHeight; z ++ ) {
+          const P = maxLat[ INDEX ] - z * ( maxLat[ INDEX ] - minLat[ INDEX ] ) / ( altitudeHeight - 1 );
+          const W = Math.sqrt( 1 - E2 * Math.sin( P ) * Math.sin( P ) );
+          const M = EQUATOR_RADIUS * ( 1 - E2 ) / ( W ** 3 );
+          const N = EQUATOR_RADIUS / W;
+          for ( let x = 0; x < altitudeWidth; x ++ ) {
+            const L = maxLon[ INDEX ] - x * ( maxLon[ INDEX ] - minLon[ INDEX ] ) / ( altitudeWidth - 1 );
+            const SURFACE_VECTOR = new THREE.Vector3( Math.round( N * Math.cos( P ) * Math.cos( L ) * significantDigits ) / significantDigits, Math.round( M * Math.sin( P ) * significantDigits ) / significantDigits, Math.round( N * Math.cos( P ) * Math.sin( L ) * significantDigits ) / significantDigits );
+            if ( azl === altDataZoomLevel ) {
+              const VERTEX_VECTOR = SURFACE_VECTOR.clone().add( SURFACE_VECTOR.clone().normalize().multiplyScalar( getAltitude( canvasName, azl, x, z ) ) ).sub( centerCoordVector );
+              geometry[ INDEX ].attributes.position.setXYZ( z * altitudeWidth + x, VERTEX_VECTOR.x, VERTEX_VECTOR.y, VERTEX_VECTOR.z );
+            } else {
+              if ( x <= 0.25 * IMAGE_SIZE_W * numberOfTiles || x >= 0.75 * IMAGE_SIZE_W * numberOfTiles - 1 || z <= 0.25 * IMAGE_SIZE_H * numberOfTiles || z >= 0.75 * IMAGE_SIZE_H * numberOfTiles - 1 ) {
+                const VERTEX_VECTOR = SURFACE_VECTOR.clone().add( SURFACE_VECTOR.clone().normalize().multiplyScalar( getAltitude( canvasName, azl, x, z ) ) ).sub( centerCoordVector );
+                geometry[ INDEX ].attributes.position.setXYZ( z * altitudeWidth + x, VERTEX_VECTOR.x, VERTEX_VECTOR.y, VERTEX_VECTOR.z );
+              } else {
+                const VERTEX_VECTOR = SURFACE_VECTOR.clone().sub( centerCoordVector );
+                geometry[ INDEX ].attributes.position.setXYZ( z * altitudeWidth + x, VERTEX_VECTOR.x, VERTEX_VECTOR.y - 500, VERTEX_VECTOR.z );
+              }
+            }
+          }
+        }
+        geometry[ INDEX ].rotateY( -1 * Math.PI / 2 + aveLon );
+        geometry[ INDEX ].rotateX( -1 * Math.PI / 2 + aveLat );
+        geometry[ INDEX ].computeVertexNormals();
+        texture[ INDEX ].needsUpdate = true;
+        let repeat = function () {
+          setTimeout( function () {
+            if ( !textureImageDownloaded ) {
+            repeat();
+            }
+            texture[ INDEX ].needsUpdate = true;
+          }, 1000 );
+        }
+        repeat();
+      }
+    //-----------------------------------------------------------------------------------------------
+    // X座標、Z座標の数値から高さ情報を取得
+    //-----------------------------------------------------------------------------------------------
+      function getAltitude( canvasName, azl, x, z ) {
+        let altY = 0;
+        const I = z * altitudeWidth + x;
+        if ( azl === 15 ) {
+          const ALT_Y_15 = altitudeImageData[ 4 * I + 0 ] * 2 ** 16 + altitudeImageData[ 4 * I + 1 ] * 2 ** 8 + altitudeImageData[ 4 * I + 2 ];
+          if ( altitudeImageData[ 4 * I + 3 ] !== 0 && ALT_Y_15 !== 2 ** 23 ) {
+            altY = ALT_Y_15;
+          } else if ( altitudeImageData[ 4 * I + 3 ] === 0 || ALT_Y_15 === 2 ** 23 ) {
+            if ( x % 2 === 0 && z % 2 === 0 ) {
+              const J = z * altitudeWidth / 4 + x / 2;
+              altY = altitudeImageData14[ 4 * J + 0 ] * 2 ** 16 + altitudeImageData14[ 4 * J + 1 ] * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ];
+            } else {
+              const J = ( z - z % 2 ) * altitudeWidth / 4 + ( x - x % 2 ) / 2;
+              const K = ( z + z % 2 ) * altitudeWidth / 4 + ( x + x % 2 ) / 2;
+              if ( x === altitudeWidth - 1 || z === altitudeHeight - 1 ) {
+                altY = altitudeImageData14[ 4 * J + 0 ] * 2 ** 16 + altitudeImageData14[ 4 * J + 1 ] * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ];
+              } else {
+                altY = ( ( altitudeImageData14[ 4 * J + 0 ] + altitudeImageData14[ 4 * K + 0 ] ) * 2 ** 16 + ( altitudeImageData14[ 4 * J + 1 ] + altitudeImageData14[ 4 * K + 1 ] ) * 2 ** 8 + altitudeImageData14[ 4 * J + 2 ] + altitudeImageData14[ 4 * K + 2 ] ) / 2;
+              }
+            }
+          }
+        } else {
+          if ( canvasName === 'altitudecanvas' ) {
+            altY = altitudeImageData[ 4 * I + 0 ] * 2 ** 16 + altitudeImageData[ 4 * I + 1 ] * 2 ** 8 + altitudeImageData[ 4 * I + 2 ];
+          } else {
+            altY = repeatAltitudeImageData[ canvasName ][ 4 * I + 0 ] * 2 ** 16 + repeatAltitudeImageData[ canvasName ][ 4 * I + 1 ] * 2 ** 8 + repeatAltitudeImageData[ canvasName ][ 4 * I + 2 ];
+          }
+        }
+        if ( altY < 2 ** 23 ) {
+          return Math.round( altY * 0.01 * significantDigits ) / significantDigits;
+        } else if ( altY === 2 ** 23 ) {
+          return 0;
+        } else if ( altY > 2 ** 23 ) {
+          return Math.round( ( altY - 2 ** 24 ) * 0.01 * significantDigits ) / significantDigits;
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // Query string（クエリーパラメーター）から数値を取得して、変数に設定
+    //-----------------------------------------------------------------------------------------------
+      function getQueryString() {
+        const QUERY_PARAMETER = new URL( document.location ).searchParams;
+        if ( QUERY_PARAMETER.get( 'n' ) && parseInt( QUERY_PARAMETER.get( 'n' ) ) >= 1 && parseInt( QUERY_PARAMETER.get( 'n' ) ) <= 10 ) {
+          numberOfTiles = parseInt( QUERY_PARAMETER.get( 'n' ) );
+        }
+        if ( QUERY_PARAMETER.get( 't' ) && parseInt( QUERY_PARAMETER.get( 't' ) ) >= 0 && parseInt( QUERY_PARAMETER.get( 't' ) ) <= 4 ) {
+          textureSwitch = parseInt( QUERY_PARAMETER.get( 't' ) );
+        }
+        if ( QUERY_PARAMETER.get( 'x' ) && isNaN( QUERY_PARAMETER.get( 'x' ) ) == false ) {
+          centerTileX = parseInt( QUERY_PARAMETER.get( 'x' ) );
+        }
+        if ( QUERY_PARAMETER.get( 'y' ) && isNaN( QUERY_PARAMETER.get( 'y' ) ) == false ) {
+          centerTileZ = parseInt( QUERY_PARAMETER.get( 'y' ) );
+        }
+        if ( QUERY_PARAMETER.get( 'z' ) && parseInt( QUERY_PARAMETER.get( 'z' ) ) >= 0 && parseInt( QUERY_PARAMETER.get( 'z' ) ) <= 15 ) {
+          altDataZoomLevel = parseInt( QUERY_PARAMETER.get( 'z' ) );
+        }
+        if ( QUERY_PARAMETER.get( 'f' ) && parseInt( QUERY_PARAMETER.get( 'f' ) ) >= -3 && parseInt( QUERY_PARAMETER.get( 'f' ) ) <= 3 ) {
+          factor1 = parseInt( QUERY_PARAMETER.get( 'f' ) );
+        }
+        // 周りの地図の数
+        if ( QUERY_PARAMETER.get( 'r' ) && parseInt( QUERY_PARAMETER.get( 'r' ) ) >= 0 && parseInt( QUERY_PARAMETER.get( 'r' ) ) <= 9 ) {
+          repeatNumber = parseInt( QUERY_PARAMETER.get( 'r' ) );
+        }
+        document.form1.z.value = altDataZoomLevel;
+        document.form1.input1.value = altDataZoomLevel;
+        document.form1.n.value = numberOfTiles;
+        document.form1.input2.value = numberOfTiles;
+        document.form1.t.value = textureSwitch;
+        document.form1.f.value = factor1;
+        document.form1.input3.value = altDataZoomLevel + factor1;
+        document.form1.x.value = centerTileX;
+        document.form1.y.value = centerTileZ;
+        // 周りの地図の数
+        document.form1.r.value = repeatNumber;
+        document.form1.input4.value = repeatNumber;
+      }
+    //-----------------------------------------------------------------------------------------------
+    // X座標、Z座標の標高に合わせて視点の場所とカメラの距離を調整する
+    //-----------------------------------------------------------------------------------------------
+      function initializeRadius( x, z ) {
+        const CURRENT_ALTITUDE = getAltitude( 'altitudecanvas', altDataZoomLevel, x, z );
+        if ( CURRENT_ALTITUDE <= 250 ) {
+          radius = 3500;
+        } else if ( CURRENT_ALTITUDE > 250 && CURRENT_ALTITUDE <= 500 ) {
+          radius = 3725;
+        } else if ( CURRENT_ALTITUDE > 500 && CURRENT_ALTITUDE <= 1000 ) {
+          radius = 3950;
+        } else if ( CURRENT_ALTITUDE > 1000 && CURRENT_ALTITUDE <= 1500 ) {
+          radius = 4400;
+        } else if ( CURRENT_ALTITUDE > 1500 && CURRENT_ALTITUDE <= 2000 ) {
+          radius = 4850;
+        } else if ( CURRENT_ALTITUDE > 2000 && CURRENT_ALTITUDE <= 2500 ) {
+          radius = 5300;
+        } else if ( CURRENT_ALTITUDE > 2500 && CURRENT_ALTITUDE <= 3000 ) {
+          radius = 5750;
+        } else if ( CURRENT_ALTITUDE > 3000 && CURRENT_ALTITUDE <= 3500 ) {
+          radius = 6200;
+        } else if ( CURRENT_ALTITUDE > 3500 ) {
+          radius = 6650;
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // X座標、Z座標の標高に合わせて視点の高さを調整する
+    //-----------------------------------------------------------------------------------------------
+      function initializeFloorHeight( x, z ) {
+        const CURRENT_ALTITUDE = getAltitude( 'altitudecanvas', altDataZoomLevel, x, z );
+        if ( CURRENT_ALTITUDE <= 250 ) {
+          birdFloorHeight = 0;
+        } else if ( CURRENT_ALTITUDE > 250 && CURRENT_ALTITUDE <= 500 ) {
+          birdFloorHeight = 225;
+        } else if ( CURRENT_ALTITUDE > 500 && CURRENT_ALTITUDE <= 1000 ) {
+          birdFloorHeight = 450;
+        } else if ( CURRENT_ALTITUDE > 1000 && CURRENT_ALTITUDE <= 1500 ) {
+          birdFloorHeight = 900;
+        } else if ( CURRENT_ALTITUDE > 1500 && CURRENT_ALTITUDE <= 2000 ) {
+          birdFloorHeight = 1350;
+        } else if ( CURRENT_ALTITUDE > 2000 && CURRENT_ALTITUDE <= 2500 ) {
+          birdFloorHeight = 1800;
+        } else if ( CURRENT_ALTITUDE > 2500 && CURRENT_ALTITUDE <= 3000 ) {
+          birdFloorHeight = 2250;
+        } else if ( CURRENT_ALTITUDE > 3000 && CURRENT_ALTITUDE <= 3500 ) {
+          birdFloorHeight = 2700;
+        } else if ( CURRENT_ALTITUDE > 3500 ) {
+          birdFloorHeight = 3150;
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // カメラの位置、視点の場所計算
+    //-----------------------------------------------------------------------------------------------
+      function birdCameraPosition() {
+        vector12 = new THREE.Vector3( currentX, 0, currentZ );
+        vector12.sub( new THREE.Vector3( 0.5 * IMAGE_SIZE_W * numberOfTiles, 0, 0.5 * IMAGE_SIZE_H * numberOfTiles ) );
+        vector12.multiply( new THREE.Vector3( geometrySizeW / ( IMAGE_SIZE_W * numberOfTiles ), 1, geometrySizeH / ( IMAGE_SIZE_H * numberOfTiles ) ) );
+        vector12.add( new THREE.Vector3( 0, birdFloorHeight, 0 ) );
+        vector11 = vector12.clone();
+        vector11.add( new THREE.Vector3( Math.sin( thetaRadian ) * Math.cos( phiRadian ), Math.cos( thetaRadian ), Math.sin( thetaRadian ) * Math.sin( phiRadian ) ).multiplyScalar( radius ) );
+      }
+    //-----------------------------------------------------------------------------------------------
+    // 立体地図の更新
+    //-----------------------------------------------------------------------------------------------
+      async function refreshMesh() {
+        eventSwitch = false;
+        positionOffsetX = ( currentX - 0.5 * IMAGE_SIZE_W * numberOfTiles ) * 2 ** ( 18 - altDataZoomLevel );
+        positionOffsetZ = ( currentZ - 0.5 * IMAGE_SIZE_H * numberOfTiles ) * 2 ** ( 18 - altDataZoomLevel );
+        centerTileX += Math.floor( positionOffsetX / IMAGE_SIZE_W );
+        centerTileZ += Math.floor( positionOffsetZ / IMAGE_SIZE_H );
+        positionOffsetX = Math.round( positionOffsetX - Math.floor( positionOffsetX / IMAGE_SIZE_W ) * IMAGE_SIZE_W );
+        positionOffsetZ = Math.round( positionOffsetZ - Math.floor( positionOffsetZ / IMAGE_SIZE_H ) * IMAGE_SIZE_H );
+        mapDataZoomLevel = altDataZoomLevel + factor1;
+        document.form1.z.value = altDataZoomLevel;
+        document.form1.input1.value = altDataZoomLevel;
+        document.form1.n.value = numberOfTiles;
+        document.form1.input2.value = numberOfTiles;
+        document.form1.t.value = textureSwitch;
+        document.form1.f.value = factor1;
+        document.form1.input3.value = altDataZoomLevel + factor1;
+        document.form1.x.value = centerTileX;
+        document.form1.y.value = centerTileZ;
+        // 周りの地図の数
+        document.form1.r.value = repeatNumber;
+        document.form1.input4.value = repeatNumber;
+        if ( altDataZoomLevel === 15 ) {
+          drawCanvas( 'altitudecanvas14', altDataZoomLevel, mapDataZoomLevel, 0.5 );
+        }
+        drawCanvas( 'texturecanvas', altDataZoomLevel, mapDataZoomLevel, factor2 );
+        await drawCanvas( 'altitudecanvas', altDataZoomLevel, mapDataZoomLevel, 1 );
+        setGeometryVertex( 'altitudecanvas', altDataZoomLevel );
+        currentX = 0.5 * IMAGE_SIZE_W * numberOfTiles + positionOffsetX / 2 ** ( 18 - altDataZoomLevel );
+        currentZ = 0.5 * IMAGE_SIZE_H * numberOfTiles + positionOffsetZ / 2 ** ( 18 - altDataZoomLevel );
+        eventSwitch = true;
+        // 周りの地図の描画
+        for ( let i = 1; i <= repeatNumber; i ++ ) {
+          refreshRepeatMap( i )
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // 周辺の立体地図の作成
+    //-----------------------------------------------------------------------------------------------
+      async function createRepeatMap( i ) {
+        // (2) 国土地理院から電子国土基本図の画像をダウンロードし、canvas要素へ描画
+        drawCanvas( 'texturecanvas' + String( i ), altDataZoomLevel - i, mapDataZoomLevel - i, factor2 );
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画（非同期処理）
+        await drawCanvas( 'altitudecanvas' + String( i ), altDataZoomLevel - i, mapDataZoomLevel - i, 1 );
+        // (5) 立体地図のメッシュを作成し、シーンに追加
+        createMesh( 'altitudecanvas' + String( i ), altDataZoomLevel - i );
+        if ( i === repeatNumber ) {
+          // カメラに映る最遠距離の調整
+          camera.far = 10000 + maxGeometrySizeW;
+          camera.updateProjectionMatrix();
+        }
+      }
+    //-----------------------------------------------------------------------------------------------
+    // 周辺の立体地図の更新
+    //-----------------------------------------------------------------------------------------------
+      async function refreshRepeatMap( i ) {
+        // (2) 国土地理院から電子国土基本図の画像をダウンロードし、canvas要素へ描画
+        drawCanvas( 'texturecanvas' + String( i ), altDataZoomLevel - i, mapDataZoomLevel - i, factor2 );
+        // (2) 国土地理院から標高タイルをダウンロードし、canvas要素へ描画（非同期処理）
+        await drawCanvas( 'altitudecanvas' + String( i ), altDataZoomLevel - i, mapDataZoomLevel - i, 1 );
+        // ジオメトリー内の各頂点の位置を設定
+        setGeometryVertex( 'altitudecanvas' + String( i ), altDataZoomLevel - i );
+        if ( i === repeatNumber ) {
+          // カメラに映る最遠距離の調整
+          camera.far = 10000 + maxGeometrySizeW;
+          camera.updateProjectionMatrix();
+        }
+      }
+    </script>
+  </body>
+</html>

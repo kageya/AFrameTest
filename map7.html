@@ -409,7 +409,7 @@
             document.getElementById( 'gps-message' ).innerHTML = '位置情報取得完了';
           }, function ( error ) {
             document.getElementById( 'gps-message' ).innerHTML = ERROR_MESSAGE[ error.code ];
-          }, { enableHightAccuracy: true, timeout: 30000, maximumAge: 0 } );
+          }, { enableHightAccuracy: false, timeout: 30000, maximumAge: 0 } );
           setTimeout( function () {
             document.form1.button1.disabled = false;
           }, 180000 );
